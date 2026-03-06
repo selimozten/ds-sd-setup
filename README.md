@@ -19,10 +19,11 @@ No installation needed — just download and run.
 1. Insert your SD card
 2. Launch DS SD Setup
 3. Your SD card should be auto-detected — if not, click **Browse** or **Detect SD**, or drag & drop the folder
-4. Select your console profile (**DSi**, **Flashcard**, or **3DS**)
-5. Choose which components to install (TwilightMenu++, nds-bootstrap)
-6. Click **Start Setup** (or press **Enter**)
-7. Wait for it to finish, then safely eject your SD card
+4. *(Optional)* Click **Format SD** to wipe and format the card as FAT32 before setup
+5. Select your console profile (**DSi**, **Flashcard**, or **3DS**)
+6. Choose which components to install (TwilightMenu++, nds-bootstrap)
+7. Click **Start Setup** (or press **Enter**)
+8. Wait for it to finish, then safely eject your SD card
 
 Your settings (SD path, profile, preferences) are saved automatically between sessions.
 
@@ -42,6 +43,14 @@ DS SD Setup downloads the latest releases from [DS-Homebrew](https://github.com/
 - **nds-bootstrap** — allows NDS ROMs to run natively from the SD card without a flashcard (DSi/3DS).
 
 Existing `_nds` folders can optionally be backed up with a timestamped rename before setup.
+
+## SD Card Formatting
+
+Click **Format SD** to format the card as FAT32 with MBR partition scheme (label: `DSSD`) before setting up. A confirmation dialog prevents accidental data loss. Safety checks refuse to format internal or system disks.
+
+- **macOS** — uses `diskutil eraseDisk` (verifies the disk is external)
+- **Linux** — uses `mkfs.fat` with `udisksctl` for remounting
+- **Windows** — uses the built-in `format` command
 
 ## Keyboard Shortcuts
 

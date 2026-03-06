@@ -317,6 +317,7 @@ int main(void) {
 
     SetupState prev_state = SETUP_IDLE;
     int log_filter = 0; // 0=All, 1=OK, 2=Err
+    bool show_format_modal = false;
 
     // Auto-detect SD cards on launch
     DetectedDrive detected[8];
@@ -344,6 +345,12 @@ int main(void) {
         }
         prev_state = ctx.state;
 
+        // After format completes, update the SD path
+        if (ctx.format_new_path[0] && ctx.state == SETUP_DONE) {
+            textfield_set(&tf_sdroot, ctx.format_new_path);
+            ctx.format_new_path[0] = '\0';
+        }
+
         // Drag & drop a folder
         if (IsFileDropped()) {
             FilePathList dropped = LoadDroppedFiles();
@@ -356,7 +363,9 @@ int main(void) {
         }
 
         // Keyboard shortcuts
-        if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
+        if (show_format_modal) {
+            if (IsKeyPressed(KEY_ESCAPE)) show_format_modal = false;
+        } else if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
             bool can_start = strlen(tf_sdroot.text) > 0;
             bool is_idle = ctx.state == SETUP_IDLE || ctx.state == SETUP_DONE;
             if (can_start && is_idle) {
@@ -364,7 +373,7 @@ int main(void) {
                 setup_start(&ctx);
             }
         }
-        if (IsKeyPressed(KEY_ESCAPE) && ctx.state == SETUP_RUNNING) {
+        if (!show_format_modal && IsKeyPressed(KEY_ESCAPE) && ctx.state == SETUP_RUNNING) {
             setup_stop(&ctx);
         }
 
@@ -385,7 +394,7 @@ int main(void) {
         {
             float field_w = win_w - PAD * 2 - BROWSE_W - 8;
             Rectangle field = {PAD, (float)y, field_w, FIELD_H};
-            textfield_handle(&tf_sdroot, field);
+            if (!show_format_modal) textfield_handle(&tf_sdroot, field);
             textfield_draw(&tf_sdroot, field, "Select SD card folder or drag & drop...");
 
             Rectangle browse_btn = {PAD + field_w + 8, (float)y, BROWSE_W, FIELD_H};
@@ -421,8 +430,18 @@ int main(void) {
                 }
             }
 
+            // Format SD button
+            {
+                bool can_fmt = strlen(tf_sdroot.text) > 0 &&
+                               !show_format_modal &&
+                               (ctx.state == SETUP_IDLE || ctx.state == SETUP_DONE);
+                Rectangle fmt_btn = {(float)(bx + 118), (float)y, 100, 26};
+                if (draw_button(fmt_btn, "Format SD", RED_ERR, can_fmt))
+                    show_format_modal = true;
+            }
+
             if (show_drive_picker && num_detected > 0) {
-                bx += 118;
+                bx += 226;
                 for (int i = 0; i < num_detected; i++) {
                     char label[80];
                     snprintf(label, sizeof(label), "%s%s",
@@ -496,12 +515,16 @@ int main(void) {
             bool can_start = strlen(tf_sdroot.text) > 0 &&
                              (ctx.config.install_twilight || ctx.config.install_bootstrap);
             bool is_running = ctx.state == SETUP_RUNNING;
+            bool is_formatting = ctx.state == SETUP_FORMATTING;
+            bool is_busy = is_running || is_formatting;
             bool is_idle = ctx.state == SETUP_IDLE || ctx.state == SETUP_DONE;
 
             Rectangle btn = {PAD, (float)y, 130, BTN_H};
             if (is_running) {
                 if (draw_button(btn, "Stop", RED_ERR, true))
                     setup_stop(&ctx);
+            } else if (is_formatting) {
+                draw_button(btn, "Formatting...", BTN_DISABLED, false);
             } else {
                 if (draw_button(btn, "Start Setup", ACCENT_COLOR, can_start && is_idle)) {
                     strncpy(ctx.config.sd_root, tf_sdroot.text, MAX_PATH_LEN - 1);
@@ -511,13 +534,22 @@ int main(void) {
 
             // Refresh button (re-fetch versions)
             Rectangle refresh_btn = {PAD + 138, (float)y, 80, BTN_H};
-            if (draw_button(refresh_btn, "Refresh", ACCENT_DIM, is_idle)) {
+            if (draw_button(refresh_btn, "Refresh", ACCENT_DIM, is_idle && !is_busy)) {
                 setup_fetch_versions(&ctx);
             }
 
             // Status text
             int sx = PAD + 228;
-            if (is_running) {
+            if (is_formatting) {
+                pthread_mutex_lock(&ctx.status_mutex);
+                if (ctx.status_label[0]) {
+                    DrawText(ctx.status_label, sx, y + 10, SMALL_FONT, ORANGE_WARN);
+                } else {
+                    DrawText("Formatting...", sx, y + 10, SMALL_FONT, ORANGE_WARN);
+                }
+                pthread_mutex_unlock(&ctx.status_mutex);
+                DrawText("Do not remove the SD card!", sx, y - 6, SMALL_FONT - 2, RED_ERR);
+            } else if (is_running) {
                 pthread_mutex_lock(&ctx.status_mutex);
                 if (ctx.status_label[0]) {
                     DrawText(ctx.status_label, sx, y + 10, SMALL_FONT, GREEN_OK);
@@ -563,8 +595,8 @@ int main(void) {
                 DrawText(pct, win_w - PAD - MeasureText(pct, SMALL_FONT - 2),
                          y - 12, SMALL_FONT - 2, DIM_TEXT);
                 y += 14;
-            } else if (ctx.state == SETUP_RUNNING) {
-                // Indeterminate bar (extraction phase)
+            } else if (ctx.state == SETUP_RUNNING || ctx.state == SETUP_FORMATTING) {
+                // Indeterminate bar (extraction/format phase)
                 Rectangle bar_bg = {PAD, (float)y, win_w - PAD * 2, 8};
                 DrawRectangleRounded(bar_bg, 0.5f, 4, FIELD_BG);
                 float t = (float)GetTime();
@@ -695,6 +727,46 @@ int main(void) {
             }
 
             pthread_mutex_unlock(&ctx.log.mutex);
+        }
+
+        // ===== Format confirmation modal =====
+        if (show_format_modal) {
+            DrawRectangle(0, 0, win_w, win_h, (Color){0, 0, 0, 160});
+
+            int modal_w = 440, modal_h = 190;
+            int mx = (win_w - modal_w) / 2;
+            int my = (win_h - modal_h) / 2;
+            Rectangle modal = {(float)mx, (float)my, (float)modal_w, (float)modal_h};
+            DrawRectangleRounded(modal, 0.05f, 8, BG_COLOR);
+            DrawRectangleRoundedLinesEx(modal, 0.05f, 8, 2, RED_ERR);
+
+            DrawText("Format SD Card", mx + 20, my + 16, 18, RED_ERR);
+            DrawText("This will ERASE ALL DATA on:", mx + 20, my + 50, SMALL_FONT, TEXT_COLOR);
+
+            // Truncate path if too long for modal
+            const char *disp_path = tf_sdroot.text;
+            char trunc_path[64];
+            if (MeasureText(disp_path, SMALL_FONT) > modal_w - 40) {
+                snprintf(trunc_path, sizeof(trunc_path), "...%s",
+                         tf_sdroot.text + strlen(tf_sdroot.text) - 40);
+                disp_path = trunc_path;
+            }
+            DrawText(disp_path, mx + 20, my + 72, SMALL_FONT, ACCENT_COLOR);
+            DrawText("Format as FAT32 with label DSSD (MBR)",
+                     mx + 20, my + 98, SMALL_FONT, DIM_TEXT);
+
+            Rectangle cancel_btn = {(float)(mx + modal_w - 230), (float)(my + modal_h - 50),
+                                    100, BTN_H};
+            Rectangle format_btn = {(float)(mx + modal_w - 120), (float)(my + modal_h - 50),
+                                    100, BTN_H};
+
+            if (draw_button(cancel_btn, "Cancel", ACCENT_DIM, true))
+                show_format_modal = false;
+            if (draw_button(format_btn, "Format", RED_ERR, true)) {
+                show_format_modal = false;
+                strncpy(ctx.config.sd_root, tf_sdroot.text, MAX_PATH_LEN - 1);
+                setup_format_sd(&ctx);
+            }
         }
 
         EndDrawing();

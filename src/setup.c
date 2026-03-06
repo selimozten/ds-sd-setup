@@ -5,6 +5,7 @@
 #endif
 
 #include "setup.h"
+#include "platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -587,6 +588,54 @@ static void *setup_thread(void *arg) {
 
     ctx->state = SETUP_DONE;
     return NULL;
+}
+
+// ---------- Format thread ----------
+
+static void *format_thread(void *arg) {
+    SetupContext *ctx = (SetupContext *)arg;
+
+    setup_log(ctx, "---");
+    setup_log(ctx, "Formatting SD card: %s", ctx->config.sd_root);
+
+    pthread_mutex_lock(&ctx->status_mutex);
+    snprintf(ctx->status_label, sizeof(ctx->status_label), "Formatting SD card...");
+    pthread_mutex_unlock(&ctx->status_mutex);
+
+    char new_path[MAX_PATH_LEN] = {0};
+    char error[256] = {0};
+
+    bool ok = platform_format_sd(ctx->config.sd_root, "DSSD",
+                                  new_path, sizeof(new_path),
+                                  error, sizeof(error));
+
+    if (ok) {
+        setup_log(ctx, "OK: SD card formatted as FAT32 (label: DSSD)");
+        if (new_path[0]) {
+            strncpy(ctx->format_new_path, new_path, MAX_PATH_LEN - 1);
+            setup_log(ctx, "New volume path: %s", new_path);
+        }
+    } else {
+        setup_log(ctx, "Error: Format failed: %s", error);
+    }
+
+    setup_log(ctx, "---");
+    ctx->state = SETUP_DONE;
+    return NULL;
+}
+
+void setup_format_sd(SetupContext *ctx) {
+    if (ctx->state != SETUP_IDLE && ctx->state != SETUP_DONE) return;
+
+    ctx->state = SETUP_FORMATTING;
+    ctx->format_new_path[0] = '\0';
+    ctx->dl_current = 0;
+    ctx->dl_total = 0;
+    ctx->status_label[0] = '\0';
+
+    pthread_t thread;
+    pthread_create(&thread, NULL, format_thread, ctx);
+    pthread_detach(thread);
 }
 
 void setup_start(SetupContext *ctx) {

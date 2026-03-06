@@ -21,6 +21,7 @@ typedef enum {
     SETUP_FETCHING,
     SETUP_RUNNING,
     SETUP_STOPPING,
+    SETUP_FORMATTING,
     SETUP_DONE,
 } SetupState;
 
@@ -56,12 +57,14 @@ typedef struct {
     int            dl_total;     // download total (KB)
     char           status_label[128];
     pthread_mutex_t status_mutex;
+    char           format_new_path[MAX_PATH_LEN];
 } SetupContext;
 
 void setup_init(SetupContext *ctx);
 void setup_fetch_versions(SetupContext *ctx);
 void setup_start(SetupContext *ctx);
 void setup_stop(SetupContext *ctx);
+void setup_format_sd(SetupContext *ctx);
 void setup_log(SetupContext *ctx, const char *fmt, ...);
 char *setup_get_log_text(SetupContext *ctx);
 

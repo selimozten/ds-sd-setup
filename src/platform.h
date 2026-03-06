@@ -17,5 +17,8 @@ typedef struct {
 bool platform_folder_dialog(const char *prompt, char *out, size_t out_len);
 int platform_detect_sd(DetectedDrive *drives, int max_drives);
 void platform_notify_done(void);
+bool platform_format_sd(const char *volume_path, const char *new_label,
+                        char *new_path_out, size_t new_path_len,
+                        char *error_out, size_t error_len);
 
 #endif
