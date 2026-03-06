@@ -2,6 +2,8 @@
 
 A GUI tool that sets up your [TwilightMenu++](https://github.com/DS-Homebrew/TWiLightMenu) SD card in one click. Select your console profile, hit start, and it downloads and extracts the latest releases directly to your SD card.
 
+**Website:** [selimozten.github.io/ds-sd-setup](https://selimozten.github.io/ds-sd-setup/)
+
 ## Download
 
 Grab the latest release for your platform from the [Releases](../../releases) page:
