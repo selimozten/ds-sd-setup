@@ -14,18 +14,32 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: brew install curl libarchive
+        run: brew install curl libarchive create-dmg
 
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
 
+      - name: Create DMG
+        run: |
+          create-dmg \
+            --volname "DS SD Setup" \
+            --volicon "macos/app.icns" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "DS SD Setup.app" 150 185 \
+            --hide-extension "DS SD Setup.app" \
+            --app-drop-link 450 185 \
+            "DS-SD-Setup.dmg" \
+            "build/DS SD Setup.app"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ds-sd-setup-macos
-          path: build/ds-sd-setup
+          path: DS-SD-Setup.dmg
 
   build-linux:
     runs-on: ubuntu-latest
@@ -92,16 +106,15 @@ jobs:
 
       - name: Package binaries
         run: |
-          mv ds-sd-setup-macos/ds-sd-setup ds-sd-setup-macos-arm64
           mv ds-sd-setup-linux/ds-sd-setup ds-sd-setup-linux-x86_64
           mv ds-sd-setup-windows/ds-sd-setup.exe ds-sd-setup-windows-x86_64.exe
-          chmod +x ds-sd-setup-macos-arm64 ds-sd-setup-linux-x86_64
+          chmod +x ds-sd-setup-linux-x86_64
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            ds-sd-setup-macos-arm64
+            ds-sd-setup-macos/DS-SD-Setup.dmg
             ds-sd-setup-linux-x86_64
             ds-sd-setup-windows-x86_64.exe

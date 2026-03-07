@@ -45,6 +45,29 @@ if(APPLE)
         "-framework OpenGL"
         "-framework CoreVideo"
     )
+
+    # --- macOS .app bundle ---
+    set(APP_NAME "ds-sd-setup")
+    set(APP_DISPLAY_NAME "DS SD Setup")
+    set(APP_BUNDLE_ID "com.selimozten.ds-sd-setup")
+    set(APP_EXECUTABLE "ds-sd-setup")
+
+    configure_file(${CMAKE_SOURCE_DIR}/macos/Info.plist.in
+                   ${CMAKE_BINARY_DIR}/Info.plist @ONLY)
+
+    add_custom_target(app-bundle ALL
+        DEPENDS ds-sd-setup
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/DS SD Setup.app"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/DS SD Setup.app/Contents/MacOS"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/DS SD Setup.app/Contents/Resources"
+        COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_BINARY_DIR}/ds-sd-setup"
+                "${CMAKE_BINARY_DIR}/DS SD Setup.app/Contents/MacOS/ds-sd-setup"
+        COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_BINARY_DIR}/Info.plist"
+                "${CMAKE_BINARY_DIR}/DS SD Setup.app/Contents/Info.plist"
+        COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/macos/app.icns"
+                "${CMAKE_BINARY_DIR}/DS SD Setup.app/Contents/Resources/app.icns"
+        COMMENT "Creating DS SD Setup.app bundle"
+    )
 elseif(WIN32)
     target_link_libraries(ds-sd-setup ole32 shell32 winmm gdi32 opengl32)
 elseif(UNIX)
