@@ -616,7 +616,7 @@
       <div class="reveal">
         <div class="hero-badge">
           <span class="dot"></span>
-          v1.0 released — macOS, Linux, Windows
+          <span id="version-badge">loading...</span> — macOS, Linux, Windows
         </div>
       </div>
       <h1 class="reveal reveal-d1"><span class="gradient">DS SD Setup</span></h1>
@@ -946,5 +946,13 @@
     document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
   </script>
 
+<script>
+fetch('https://api.github.com/repos/selimozten/ds-sd-setup/releases/latest')
+  .then(r=>r.json()).then(d=>{
+    document.getElementById('version-badge').textContent=d.tag_name+' released';
+  }).catch(()=>{
+    document.getElementById('version-badge').textContent='latest release';
+  });
+</script>
 </body>
 </html>
