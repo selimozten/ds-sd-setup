@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="macos/icon.png" width="128" height="128" alt="DS SD Setup icon">
+</p>
+
 # DS SD Setup
 
 A GUI tool that sets up your [TwilightMenu++](https://github.com/DS-Homebrew/TWiLightMenu) SD card in one click. Select your console profile, hit start, and it downloads and extracts the latest releases directly to your SD card.
